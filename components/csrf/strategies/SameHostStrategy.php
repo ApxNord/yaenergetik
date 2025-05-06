@@ -1,6 +1,6 @@
 <?php
 
-class SameHostStrategy implements CsrfValidationStrategy
+class SameHostStrategy implements CsrfValidationStrategyInterface
 {
     public function validate(CHttpRequest $request): void
     {

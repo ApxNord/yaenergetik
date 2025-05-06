@@ -1,11 +1,30 @@
 <?php
 
+/**
+ * Менеджер ассетов для работы с CSS/JS ресурсами.
+ * 
+ * @see AssetManagerInterface
+ */
 class AssetManager implements AssetManagerInterface
 {
+    /**
+     * @var CClientScript Интеграция с системой скриптов Yii
+     */
     private CClientScript $clientScript;
-    private array $config = [];
-    private array $publishedPaths = [];
 
+    /**
+     * @var array Конфигурация путей:
+     * [
+     *   'res' => 'application.assets.resources',
+     *   'js' => 'application.assets.js.project'
+     * ]
+     */
+    private array $config = [];
+
+    /**
+     * @param CClientScript $clientScript Компонент работы со скриптами
+     * @param array $config Кастомные пути ассетов
+     */
     public function __construct(CClientScript $clientScript, array $config = [])
     {
         $this->clientScript = $clientScript;
@@ -51,6 +70,15 @@ class AssetManager implements AssetManagerInterface
         $this->clientScript->registerCss($id, $css, $media);
     }
 
+    /**
+     * Генерирует имя для экспорта JS-модуля.
+     * 
+     * @param string $name Исходное имя файла
+     * @return string CamelCase-имя
+     * 
+     * @example
+     * 'data-grid' → 'DataGrid'
+     */
     private function generateExportName(string $name): string {
         $nameParts = explode('-', $name);
         $exports = '';

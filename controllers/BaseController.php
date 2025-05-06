@@ -1,8 +1,7 @@
 <?php
 
 /**
- * Controller is the customized base controller class.
- * All controller classes for this application should extend from this base class.
+ * Базовый контроллер приложения, от которого должны наследоваться все контроллеры.
  */
 class BaseController extends CController
 {
@@ -29,7 +28,14 @@ class BaseController extends CController
      */
     public $csrfRules = CsrfStrategyFactory::CSRF_ALLOW_SAME;
 
+    /**
+     * @var AssetManagerInterface Менеджер ассетов (CSS/JS).
+     */
     protected AssetManagerInterface $assetManager;
+
+    /**
+     * @var BrandingProviderInterface Поставщик данных брендинга (название приложения, логотип, язык).
+     */
     protected BrandingProviderInterface $brandingProvider;
 
     public function __construct(
@@ -53,6 +59,10 @@ class BaseController extends CController
         $this->initMetaTags();
     }
 
+    /**
+     * Генерирует полный заголовок страницы для <title>.
+     * @return string
+     */
     public function getHeadPageTitle(): string
     {
         // текстовое название страницы
@@ -64,12 +74,16 @@ class BaseController extends CController
     private function resolvePageTitle(): ?string
     {
         if ($this->pageTitle instanceof PageTitle) {
-            $pageTitle = $this->pageTitle->getLastLabel();
+            return $this->pageTitle->getLastLabel();
         }
 
         return is_string($this->pageTitle) ? $this->pageTitle: null;
     }
 
+    /**
+     * Проверяет наличие лицензионного контракта у пользователя и запускает прогнозирование.
+     * @return void
+     */
     public function addSystemContractNotifications()
     {
         $user = Yii::app()->user->getModel();
@@ -103,6 +117,11 @@ class BaseController extends CController
         Yii::app()->jsonResponseHandler->sendView($view, $data, $processOutput);
     }
 
+    /**
+     * Проверяет, что запрос является POST. В противном случае возвращает HTTP 400.
+     * @throws \CHttpException
+     * @return void
+     */
     public function assertPostRequest()
     {
         if (!Yii::app()->request->isPostRequest) {
@@ -110,11 +129,21 @@ class BaseController extends CController
         }
     }
 
+    /**
+     * Возвращает URL личного кабинета пользователя.
+     * @return string
+     */
     public function getDashboardUrl(): string
     {
         return Yii::app()->redirectHandler->getDashboardUrl();
     }
 
+    /**
+     * Перенаправляет на URL. Для AJAX-запросов возвращает HTTP 400 с заголовком перенаправления.
+     * @param mixed $url
+     * @param mixed $terminate
+     * @return void
+     */
     public function redirectEx($url, $terminate = true): void
     {
         Yii::app()->redirectHandler->redirectEx($url, $terminate);
@@ -130,17 +159,31 @@ class BaseController extends CController
         return null;
     }
 
+    /**
+     * Регистрирует метатеги Content-Type и language.
+     * @return void
+     */
     private function initMetaTags()
     {
         Yii::app()->clientScript->registerMetaTag('text/html; charset=utf-8', null, 'Content-Type');
         Yii::app()->clientScript->registerMetaTag($this->brandingProvider->getApplicationLanguage(), 'language');
     }
 
+    /**
+     * Определяет правило CSRF для текущего экшена.
+     * @param CAction $action
+     * @return int
+     */
     private function resolveCsrfRule(CAction $action): int
     {
         return Yii::app()->csrfHandler->resolveRule($this->csrfRules, $action);
     }
 
+    /**
+     * Применяет выбранную стратегию CSRF через CsrfHandler.
+     * @param int $rule
+     * @return void
+     */
     private function applyCsrfStrategy(int $rule): void
     {
         Yii::app()->csrfHandler->validate($rule, Yii::app()->request);

@@ -1,6 +1,6 @@
 <?php
 
-class InalidAssetTypeException extends CHttpException
+class InvalidAssetTypeException extends CHttpException
 {
     public function __construct(string $message = '', int $code = 0, Throwable $previous = null)
     {

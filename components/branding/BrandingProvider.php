@@ -1,12 +1,44 @@
 <?php
 
+/**
+ * Класс для получения брендинговых данных приложения.
+ * 
+ * ### Основные функции:
+ * - Определение языка интерфейса
+ * - Получение названия приложения
+ * - Управление стилями меню
+ * - Работа с логотипом
+ * 
+ * @package components.branding
+ */
 class BrandingProvider implements BrandingProviderInterface {
 
+    /**
+     * @var User|null Текущий пользователь (null для гостей)
+     */
     private ?User $user;
+
+    /**
+     * @var PartnerProgramManager Менеджер партнерских программ
+     */
     private PartnerProgrammManager $partnerManager;
+
+    /**
+     * @var string Название приложения по умолчанию
+     */
     private string $defaultAppName;
+
+    /**
+     * @var string Исходный язык (используется если у пользователя не задан)
+     */
     private string $sourceLanguage;
 
+    /**
+     * @param User|null $user Текущий пользователь
+     * @param PartnerProgramManager $partnerManager Менеджер партнерок
+     * @param string $defaultAppName Дефолтное название
+     * @param string $sourceLanguage Язык по умолчанию
+     */
     public function __construct(
         ?User $user, 
         PartnerProgrammManager $partnerManager,
@@ -24,33 +56,18 @@ class BrandingProvider implements BrandingProviderInterface {
         return $this->user?->language ?? $this->sourceLanguage;
     }
 
-    /**
-     * Возвращает имя приложения с учетом бренда.
-     *
-     * @return string
-     */
     public function getApplicationName(): string
     {
         $brand = $this->getUserBrand() ?? $this->getDefaultBrand();
         return $brand->name ??  $this->defaultAppName;
     }
 
-    /**
-     * Возвращает CSS стили меню (в формате JSON) с учетом бренда.
-     *
-     * @return string
-     */
     public function getApplicationMenuStyles(): array
     {
         $brand = $this->getUserBrand();
         return $brand ? json_decode($brand->menuStyle, true) : [];
     }
 
-    /**
-     * Возвращает path изображения логотипа с учетом бренда.
-     *
-     * @return string
-     */
     public function getLogoPath(): ?string
     {
         $brand = $this->getUserBrand();

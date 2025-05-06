@@ -1,6 +1,20 @@
 <?php
-// protected/components/assets/AssetTypes.php
 
+/**
+ * Класс для работы с типами ассетов приложения.
+ * 
+ * Определяет структуру и допустимые типы ресурсов, их псевдонимы путей 
+ * и предоставляет методы валидации.
+ * 
+ * ### Основные типы ассетов:
+ * - **JS**: Клиентские скрипты (например, `main.js`)
+ * - **CSS**: Стили (например, `styles.css`)
+ * - **KOJS**: Knockout.js компоненты
+ * - **RES**: Статические ресурсы (изображения, шрифты)
+ * - **LANG**: Локализованные языковые файлы
+ * 
+ * @package components.assets
+ */
 class AssetTypes
 {
     const TYPE_JS = 'js';
@@ -17,6 +31,17 @@ class AssetTypes
         self::TYPE_LANG => 'application.lang.js.project',
     ];
 
+    /**
+     * Возвращает псевдоним пути для указанного типа ассета.
+     * 
+     * @param string $type Одна из констант TYPE_*
+     * @return string Псевдоним пути (например, `application.assets.js.project`)
+     * 
+     * @throws InvalidArgumentException Если тип не существует
+     * 
+     * @example
+     * AssetTypes::getAlias(AssetTypes::TYPE_JS); // 'application.assets.js.project'
+     */
     public static function getAlias(string $type): string
     {
         if (!isset(self::$aliases[$type])) {
@@ -25,6 +50,12 @@ class AssetTypes
         return self::$aliases[$type];
     }
 
+    /**
+     * Проверяет валидность типа ассета.
+     * 
+     * @param string $type Проверяемый тип
+     * @throws InvalidAssetTypeException Если тип не поддерживается
+     */
     public static function validateType(string $type): void
     {
         if (!array_key_exists($type, self::$aliases)) {
@@ -32,11 +63,28 @@ class AssetTypes
         }
     }
 
+    /**
+     * Возвращает список всех доступных типов ассетов.
+     * 
+     * @return array<string> Массив констант TYPE_*
+     * 
+     * @example
+     * AssetTypes::getAllTypes(); // ['js', 'css', 'kojs', ...]
+     */
     public static function getAllTypes(): array
     {
         return array_keys(self::$aliases);
     }
 
+    /**
+     * Проверяет, является ли тип ассета скриптом (JS или KOJS).
+     * 
+     * @param string $type Проверяемый тип
+     * @return bool 
+     * 
+     * @example
+     * AssetTypes::isScriptType(AssetTypes::TYPE_JS); // true
+     */
     public static function isScriptType(string $type): bool
     {
         return in_array($type, [
