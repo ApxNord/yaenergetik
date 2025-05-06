@@ -46,132 +46,45 @@ class BaseController extends CController
     const FAIL = 0;
     const SUCCESS = 1;
 
-    protected BrandingProviderInterface $branding;
-    protected AssetManager $assetManager;
-    protected ModelService $modelService;
-    protected CClientScript $clientScript;
+    protected AssetManagerInterface $assetManager;
+    protected BrandingProviderInterface $brandingProvider;
+
+    public function __construct(
+        $id,
+        $module = null,
+        AssetManagerInterface $assetManager = null,
+        BrandingProviderInterface $brandingProvider = null)
+    {
+        parent::__construct($id, $module);
+
+        $this->assetManager = $assetManager ?? Yii::app()->assetManager;
+        $this->brandingProvider = $brandingProvider ?? Yii::app()->brandingProvider;
+    }
+
     public function init()
     {
         parent::init();
 
-        $this->branding = Yii::app()->branding;
-        $this->assetManager = Yii::app()->assetManager;
-        $this->clientScript = Yii::app()->clientScript;
-
-        $this->modelService = new ModelService();
-
-        $this->initTags();
-        $this->initLanguage();
+        $this->assetManager->registerCoreAsset();
+        Yii::app()->languageInitializer->init($this->brandingProvider);
+        $this->initMetaTags();
     }
 
-    private function initLanguage(): void
-    {
-        Yii::app()->language = $this->branding->getLanguage();
-        Ascue\Lang\Lang::set($this->branding->getLanguage());
-    }
-
-    private function initTags(): void
-    {
-        $this->clientScript->registerMetaTag('text/html; charset=utf-8', null, 'Content-Type');
-        $this->clientScript->registerMetaTag($this->branding->getLanguage(), 'language');
-        $this->clientScript->registerMetaTag('width=device-width, initial-scale=1.0', 'viewport');
-    }
-
-    private function initLinks(): void
-    {
-        $this->clientScript->registerLinkTag('icon', null, '/favicon.ico');
-        $this->clientScript->registerLinkTag('shortcut icon', null, '/favicon.ico');      
-    }
-
-    private function initPackage()
-    {
-        $this->clientScript->registerPackage('font-open-sans');
-    }
-
-    /**
-     * Возвращает полное название страницы, которое можно использовать в секции <head></head>.
-     *
-     * Включает в себя текущее название страницы и название партнера.
-     *
-     * @return string
-     */
     public function getHeadPageTitle(): string
     {
+        // текстовое название страницы
         $pageTitle = $this->resolvePageTitle();
-        return $pageTitle 
-        ? sprintf('%s - %s', $pageTitle, $this->branding->getApplicationName())
-        : $this->branding->getApplicationName();
+
+        return ($pageTitle ? $pageTitle.' - ' : '').$this->brandingProvider->getApplicationName();
     }
 
-    private function resolvePageTitle(): string 
+    private function resolvePageTitle(): ?string
     {
         if ($this->pageTitle instanceof PageTitle) {
-            return $this->pageTitle->getLastLabel();
+            $pageTitle = $this->pageTitle->getLastLabel();
         }
 
-        return (string) $this->pageTitle;
-    }
-
-    protected function testCsrf(CHttpRequest $request, int $rule): void
-    {
-        try {
-            $strategy = CsrfStrategyFactory::create($rule);
-            $strategy->validate($request);
-        } catch (CsrfValidationException $e) {
-            $this->logCsrfError($e, $request);
-            throw $e;
-        }
-    }
-
-    private function logCsrfError(CsrfValidationException $e, CHttpRequest $request): void {
-        $context = [
-            'url' => $request->url,
-            'userAgent' => $request->userAgent,
-            'referer' => $request->getUrlReferrer(),
-        ];
-
-        Log::warning("CSRF Validation Failed: {$e->getMessage()}",
-            CLogger::LEVEL_WARNING,
-            'security',
-            [
-                'ip' => $request->userHostAddress,
-                'url' => $request->url,
-                'referer' => $request->getUrlReferrer(),
-                'userAgent' => $request->userAgent
-            ]
-        );
-        throw new CHttpException(403, Yii::t('app', 'Access denied'), 403, $e);
-    }
-
-    /**
-     * {@inheritdoc}
-     */
-    protected function beforeAction($action)
-    {
-        $this->resolveDatabases($action);
-        $rule = $this->resolveCsrfRule($action);
-        $this->testCsrf(Yii::app()->request, $rule);
-
-        $this->clientScript->registerPackage('lang');
-        $this->clientScript->registerScript(
-            'lang-init',
-            'Lang.init('.CJavaScript::encode([
-                'language' => Yii::app()->language,
-            ]).');'
-        );
-
-        return true;
-    }
-
-    private function resolveCsrfRule(CAction $action): int
-    {
-        if (is_array($this->csrfRules)) {
-            return $this->csrfRules[$action->id] 
-                ?? $this->csrfRules['*'] 
-                ?? self::CSRF_ALLOW_SAME;
-        }
-
-        return $this->csrfRules;
+        return is_string($this->pageTitle) ? $this->pageTitle: null;
     }
 
     public function addSystemContractNotifications()
@@ -185,50 +98,28 @@ class BaseController extends CController
         }
     }
 
-    //------------------------------------------------------------------------
-    //  Отправка данных в виде JSON-объектов
-    //------------------------------------------------------------------------
+    protected function beforeAction($action)
+    {
+        $this->resolveDatabases($action);
 
-    /**
-     * Отправить данные в виде JSON.
-     *
-     * @param mixed $success
-     * @param array $data
-     *
-     * @fixme $data не может иметь ключ 'success'
-     */
+        if ($action->getId() !== 'error') {
+            $rule = $this->resolveCsrfRule($action);
+            $this->applyCsrfStrategy($rule);
+        }
+
+        return true;
+    }
+
     public function renderJson($success, $data = [])
     {
-        $data['success'] = $success;
-
-        Yii::app()->json->send($data);
+        Yii::app()->jsonResponseHandler->send($success, $data);
     }
 
-    /**
-     * Отправить страницу в виде JSON.
-     *
-     * @param string $view
-     * @param array  $data
-     * @param bool   $processOutput
-     */
     public function renderJsonView($view, $data = [], $processOutput = false)
     {
-        Yii::app()->json->send(
-            [
-                'success' => CHtml::value($data, 'success', self::SUCCESS),
-                'html' => $this->renderPartial($view, $data, true, $processOutput),
-            ]
-        );
+        Yii::app()->jsonResponseHandler->sendView($view, $data, $processOutput);
     }
 
-    //------------------------------------------------------------------------
-    //  Проверка входящих запросов
-    //------------------------------------------------------------------------
-
-    /**
-     * Проверить, что запрос является POST-запросом.
-     * Если это не так, будет вызвано исключение.
-     */
     public function assertPostRequest()
     {
         if (!Yii::app()->request->isPostRequest) {
@@ -236,35 +127,39 @@ class BaseController extends CController
         }
     }
 
-    //------------------------------------------------------------------------
-    //  Перенаправления
-    //------------------------------------------------------------------------
-
-    /**
-     * Возвращает домашнюю страницу для текущего пользователя.
-     *
-     * @return string
-     */
-    public function getDashboardUrl()
+    public function getDashboardUrl(): string
     {
-        return Yii::app()->user->getDashboardUrl();
+        return Yii::app()->redirectHandler->getDashboardUrl();
     }
 
-    /**
-     * Перенаправляет пользователя по данному url. В отличие от CController::redirect(),
-     * этот метод обрабатывает ajax запросы особым образом, чтобы можно было обработать
-     * перенаправление на стороне js (обычно во время ajax запроса перенаправление
-     * происходит автоматически без возможности его контролировать).
-     *
-     * @param string|array $url
-     * @param bool         $terminate
-     */
-    public function redirectEx($url, $terminate = true)
+    public function redirectEx($url, $terminate = true): void
     {
-        if (Yii::app()->request->getIsAjaxRequest()) {
-            $this->redirect($url, $terminate, 400);
-        } else {
-            $this->redirect($url, $terminate);
-        }
+        Yii::app()->redirectHandler->redirectEx($url, $terminate);
+    }
+
+    protected function resolveDatabases(CAction $action): void
+    {
+        Yii::app()->databaseResolver->resolve($action, $this);
+    }
+    
+    protected function getDefaultDbActions(): ?array
+    {
+        return null;
+    }
+
+    private function initMetaTags()
+    {
+        Yii::app()->clientScript->registerMetaTag('text/html; charset=utf-8', null, 'Content-Type');
+        Yii::app()->clientScript->registerMetaTag($this->brandingProvider->getApplicationLanguage(), 'language');
+    }
+
+    private function resolveCsrfRule(CAction $action): int
+    {
+        return Yii::app()->csrfHandler->resolveRule($this->csrfRules, $action);
+    }
+
+    private function applyCsrfStrategy(int $rule): void
+    {
+        Yii::app()->csrfHandler->validate($rule, Yii::app()->request);
     }
 }

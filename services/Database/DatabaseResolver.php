@@ -2,42 +2,27 @@
 
 class DatabaseResolver
 {
-    public function resolveForAction(CAction $action): void
+    public function resolve(CAction $action, CController $controller): void
     {
-        $currentDb = Yii::app()->db->getCurrentDatabase();
-        $actions = $this->getDefaultDbActions();
-        if ($actions === null || (!empty($actions) && !in_array($action->id, $actions))) {
+        $actions = $controller->getDefaultDbActions();
+
+        if ($actions === null || (!empty($actions) && !in_array($action->getId(), $actions, true))) {
             return;
         }
-       
-        if ($this->needsDefaultDb($action, $actions)) {
-            $this->switchToDefaultDb();
-        }
-    }
 
-        /**
-     * Возвращает экшены, которые необходимо выполнять в контекте бд по умолчанию.
-     *
-     * @return null|array null - никакие, [] - все
-     */
-    public function getDefaultDbActions()
-    {
-        return null;
-    }
+        $currentDb = Yii::app()->db->getCurrentDatabase();
+        $defaultDb = Database::model()->findByAttributes(['default' => 1]) ?: Database::model()->find();
 
-    private function needsDefaultDb(CAction $action, ?array $actions): bool
-    {
-        return $actions === null || (!empty($actions) && !in_array($action->id, $actions));
-    }
-
-    private function switchToDefaultDb(): void
-    {
-        $defaultDb = Database::model()->findByAttribures(['default' => 1]) 
-            ?? Database::model()->find();
-            
         if ($defaultDb && $currentDb->id != $defaultDb->id) {
-            $this->redirect('/'.$defaultDb->title.'/'.Yii::app()->controller->id.'/'.$action->id
-                .(Yii::app()->request->queryString ? '?'.Yii::app()->request->queryString : ''));
+            $controller->redirect($this->buildUrl($defaultDb, $action, $controller));
         }
+    }
+
+    private function buildUrl(Database $db, CAction $action, CController $controller): string
+    {
+        return Yii::app()->createAbsoluteUrl(
+            "/{$db->title}/{$controller->getId()}/{$action->getId()}",
+            Yii::app()->request->queryParams
+        );
     }
 }

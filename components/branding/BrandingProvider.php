@@ -19,7 +19,7 @@ class BrandingProvider implements BrandingProviderInterface {
         $this->sourceLanguage = $sourceLanguage;
     }
     
-    public function getLanguage(): string
+    public function getApplicationLanguage(): string
     {
         return $this->user?->language ?? $this->sourceLanguage;
     }
@@ -40,7 +40,7 @@ class BrandingProvider implements BrandingProviderInterface {
      *
      * @return string
      */
-    public function getMenuStyles(): array
+    public function getApplicationMenuStyles(): array
     {
         $brand = $this->getUserBrand();
         return $brand ? json_decode($brand->menuStyle, true) : [];

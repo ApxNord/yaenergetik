@@ -23,19 +23,19 @@ class AuthorizedController extends BaseController
      */
     protected $timezoneSet = false;
 
+    protected UserLoader $userLoader;
+    protected AccessManager $accessManager;
+
     /**
      * {@inheritdoc}
      */
     public function accessRules()
     {
-        $allow = ['allow'];
-        if ($this->userRole !== null) {
-            $allow['roles'] = array_merge(['admin'], (array) $this->userRole);
-        } else {
-            $allow['users'] = ['@'];
-        }
-
-        return [$allow, ['deny']];
+        return $this->accessManager->createRules(
+            $this->userRole,
+            ['admin'],
+            ['@']
+        );
     }
 
     /**
@@ -54,6 +54,9 @@ class AuthorizedController extends BaseController
     public function init()
     {
         parent::init();
+
+        $this->userLoader = new UserLoader();
+        $this->accessManager = new AccessManager();
 
         // Если часовой пояс еще не установлен дочерним контроллером
         if (!$this->timezoneSet) {
@@ -79,13 +82,7 @@ class AuthorizedController extends BaseController
      */
     public function loadUser($id)
     {
-        $model = Yii::app()->user->getIsAdmin() && !empty($id)
-            ? $model = User::model()->findByPk($id)
-            : $model = Yii::app()->user->getModel();
-
-        $this->ensureModelExists($model, Yii::t('controllers.AuthorizedController', 'user_not_found'));
-
-        return $model;
+        return $this->userLoader->load($id);
     }
 
     protected function beforeAction($action)
@@ -110,63 +107,15 @@ class AuthorizedController extends BaseController
         return true;
     }
 
-    public function getHasAccess($opName, array $params = [])
+    public function checkAccess($opName, ?ActiveRecord $model = null)
     {
-        if (!isset($params['model'])) {
-            $params['model'] = null;
-        }
-
-        return Yii::app()->user->checkAccess($opName, $params);
-    }
-
-    public function getHasModelAccess($opName, ActiveRecord $model = null)
-    {
-        $this->ensureModelExists($model);
-        $params = ['model' => $model];
-
-        return $this->getHasAccess($opName, $params);
-    }
-
-    public function checkAccess($opName, array $params = [])
-    {
-        if (!isset($params['model'])) {
-            $params['model'] = null;
-        }
-
-        if (!Yii::app()->user->checkAccess($opName, $params)) {
-            if (Yii::app()->request->getIsAjaxRequest()) {
-                $this->renderJson(self::FAIL, ['message' => Yii::t('controllers.AuthorizedController', 'access_error')]);
-            } else {
-                throw new CHttpException(403, Yii::t('controllers.AuthorizedController', 'access_error'));
-            }
-        }
-    }
-
-    public function checkModelAccess($opName, ActiveRecord $model = null)
-    {
-        $this->ensureModelExists($model);
-        $params = ['model' => $model];
-        $this->checkAccess($opName, $params);
+        $this->accessManager->verify($opName, $model);
     }
 
     public function blockDemo()
     {
         if ($this->getWebUserModel()->getIsDemo()) {
             throw new CHttpException(403, Yii::t('controllers.AuthorizedController', 'access_error'));
-        }
-    }
-
-    /**
-     * @psalm-assert ActiveRecord $model
-     */
-    public function ensureModelExists(ActiveRecord $model = null, $message = null)
-    {
-        if ($model === null) {
-            if (Yii::app()->request->getIsAjaxRequest()) {
-                $this->renderJson(self::FAIL, ['message' => Yii::t('controllers.AuthorizedController', 'data_not_found')]);
-            } else {
-                throw new CHttpException(404, $message ?: Yii::t('controllers.AuthorizedController', 'data_not_found'));
-            }
         }
     }
 }

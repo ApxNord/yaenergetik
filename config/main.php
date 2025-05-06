@@ -168,18 +168,27 @@ $mainConfig =  [
             'socket' => ConfigHelper::getEnv('YBG_SOCKET'),
         ],
         'assetManager' => [
-            'class' => 'AssetManager',
+            'class' => AssetManager::class,
             'config' => [
-                'res' => 'application.assets.resources'
+                'res' => AssetTypes::getAlias(AssetTypes::TYPE_RES),
+                'js' => AssetTypes::getAlias(AssetTypes::TYPE_JS),
+                'css' => AssetTypes::getAlias(AssetTypes::TYPE_CSS),
+                'kojs' => AssetTypes::getAlias(AssetTypes::TYPE_KOJS),
+                'langPackage' => 'application.lang.js.project',
             ]
         ],
         'branding' => [
-            'class' => 'BrandingProvider',
+            'class' => BrandingProvider::class,
             'user' => Yii::app()->user->getModel(), // null если не авторизован
             'partnerManager' => Yii::app()->partnerProgramManager,
             'defaultAppName' => 'My Application',
             'sourceLanguage' => 'en',
         ],
+        'databaseResolver' => ['class' => DatabaseResolver::class],
+        'jsonResponseHandler' => ['class' => JsonResponseHandler::class],
+        'redirectHandler' => ['class' => RedirectHandler::class],
+        'languageInitializer' => ['class' => LanguageInitializer::class],
+        'csrfHandler' => ['class' => CsrfHandler::class],
     ],
     'import' => $imports,
     'modules' => [
