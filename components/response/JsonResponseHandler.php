@@ -2,6 +2,9 @@
 
 class JsonResponseHandler
 {
+        // Статусы для AJAX-запросов
+        const FAIL = 0;
+        const SUCCESS = 1;
     public function send($success, $data = [])
     {
         Yii::app()->json->send(array_merge(
@@ -20,6 +23,6 @@ class JsonResponseHandler
     public function sendView($view, $data = [], $processOutput = false)
     {
         $html = Yii::app()->controller->renderPartial($view, $data, true, $processOutput);
-        $this->send(CHtml::value($data, 'success', BaseController::SUCCESS), ['html' => $html]);
+        $this->send(CHtml::value($data, 'success', self::SUCCESS), ['html' => $html]);
     }
 }
